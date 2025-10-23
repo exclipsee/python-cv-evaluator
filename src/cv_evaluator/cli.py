@@ -6,16 +6,18 @@ import click
 from .checks import evaluate_file
 from .extractor import extract_text
 from .utils import tokenize_words, STOPWORDS
+from .report import render_markdown
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.argument("cv_path", type=click.Path(exists=True, path_type=Path))
 @click.option("--job", "job_file", type=click.Path(exists=True, path_type=Path), help="Path to a job description text file for keyword extraction")
 @click.option("--keywords", type=str, help="Comma-separated keywords to check for")
-@click.option("--format", "out_format", type=click.Choice(["text", "json"], case_sensitive=False), default="text", show_default=True)
+@click.option("--format", "out_format", type=click.Choice(["text", "json", "md"], case_sensitive=False), default="text", show_default=True)
 @click.option("--fail-under", type=int, default=70, show_default=True, help="Exit non-zero if score is below this threshold")
 @click.option("--show-text", is_flag=True, help="Print the raw extracted text to stdout (debug)")
-def main(cv_path: Path, job_file: Path | None, keywords: str | None, out_format: str, fail_under: int, show_text: bool) -> None:
+@click.option("--report", type=click.Path(path_type=Path), help="Write a Markdown report to the given path")
+def main(cv_path: Path, job_file: Path | None, keywords: str | None, out_format: str, fail_under: int, show_text: bool, report: Path | None) -> None:
     """Evaluate a CV/Resume file for ATS compatibility.
 
     CV_PATH: Path to the CV file (pdf, docx, txt)
@@ -44,6 +46,13 @@ def main(cv_path: Path, job_file: Path | None, keywords: str | None, out_format:
 
     if out_format.lower() == "json":
         click.echo(json.dumps(result, indent=2))
+    elif out_format.lower() == "md":
+        md = render_markdown(result)
+        if report:
+            report.write_text(md, encoding="utf-8")
+            click.echo(f"Report written to {report}")
+        else:
+            click.echo(md)
     else:
         click.echo(f"Score: {result['score']} / 100")
         click.echo("Checks:")

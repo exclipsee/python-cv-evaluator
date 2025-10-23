@@ -26,6 +26,9 @@ ats-eval "C:\\path\\to\\YourCV.pdf"
 # JSON output
 ats-eval "C:\\path\\to\\YourCV.pdf" --format json
 
+# Markdown report to file
+ats-eval "C:\\path\\to\\YourCV.pdf" --format md --report "C:\\path\\to\\report.md"
+
 # Use a job description to derive keywords
 ats-eval "C:\\path\\to\\YourCV.pdf" --job "C:\\path\\to\\job.txt"
 

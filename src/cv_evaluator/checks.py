@@ -86,6 +86,13 @@ def evaluate_file(path: Path, keywords: Iterable[str] | None = None) -> dict:
     links = _profile_links(text)
     missing, hits = _keyword_coverage(text, keywords)
 
+    # File metadata
+    try:
+        size_bytes = path.stat().st_size
+    except Exception:
+        size_bytes = None
+    size_kb = round(size_bytes / 1024, 1) if size_bytes is not None else None
+
     checks = {
         "has_text": bool(text.strip()),
         "has_contact_info": has_contact,
@@ -93,21 +100,26 @@ def evaluate_file(path: Path, keywords: Iterable[str] | None = None) -> dict:
         "no_table_layout": not any("tables" in p for p in pitfalls),
         "reasonable_length": (50 <= len(text.split()) <= 1200),
         "has_profile_links": (links["linkedin"] or links["github"]),
+        "reasonable_pages": (ext.pages is None) or (1 <= int(ext.pages) <= 3),
+        "reasonable_file_size": (size_kb is None) or (size_kb <= 2048),
     }
 
-    # Weights sum to 1.0
-    score = weighted_score({
-        "has_text": (1.0 if checks["has_text"] else 0.0, 0.25),
-        "contact": (1.0 if has_contact else 0.0, 0.15),
+    # Weights sum to 1.0 (normalized internally)
+    parts = {
+        "has_text": (1.0 if checks["has_text"] else 0.0, 0.22),
+        "contact": (1.0 if has_contact else 0.0, 0.12),
         "sections": (
             sum(1.0 for v in sections.values() if v) / max(1, len(sections)),
-            0.30,
+            0.24,
         ),
-        "length": (1.0 if checks["reasonable_length"] else 0.0, 0.15),
-        "pitfalls": (1.0 if not pitfalls else 0.0, 0.05),
-        "keywords": (0.0 if not keywords else (hits / max(1, len(list(keywords)))), 0.08),
+        "length": (1.0 if checks["reasonable_length"] else 0.0, 0.12),
+        "pitfalls": (1.0 if not pitfalls else 0.0, 0.06),
+        "keywords": (0.0 if not keywords else (hits / max(1, len(list(keywords)))), 0.14),
+        "pages": (1.0 if checks["reasonable_pages"] else 0.0, 0.05),
+        "size": (1.0 if checks["reasonable_file_size"] else 0.0, 0.03),
         "profile_links": (1.0 if checks["has_profile_links"] else 0.0, 0.02),
-    })
+    }
+    score = weighted_score(parts)
 
     suggestions: list[str] = []
     if not has_contact:
@@ -120,13 +132,21 @@ def evaluate_file(path: Path, keywords: Iterable[str] | None = None) -> dict:
         suggestions.append("PDF text extraction failed; export to PDF as text (not scanned) or use DOCX.")
     if not checks["has_profile_links"]:
         suggestions.append("Add a LinkedIn and/or GitHub URL in contact info.")
+    if not checks["reasonable_pages"] and ext.pages is not None:
+        suggestions.append("Keep the CV to 1–3 pages for better readability.")
+    if not checks["reasonable_file_size"] and size_kb is not None:
+        suggestions.append("Reduce file size (optimize images, export to text-based PDF/DOCX).")
 
     return {
         "path": str(path),
         "file_type": ext.file_type,
         "pages": ext.pages,
+        "file_size_kb": size_kb,
         "checks": checks,
+        "scores": {k: {"value": v, "weight": w} for k, (v, w) in parts.items()},
         "score": int(round(score * 100)),
         "missing_keywords": missing,
+        "found_keywords": (list(keywords) if keywords else []),
         "suggestions": suggestions,
+        "links": links,
     }
