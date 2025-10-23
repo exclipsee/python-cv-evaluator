@@ -20,3 +20,19 @@ Education: BSc
     assert res["checks"]["has_contact_info"] is True
     assert res["score"] >= 60
     assert "docker" in res["missing_keywords"]
+
+
+def test_profile_links_detection(tmp_path: Path):
+    p = tmp_path / "cv.txt"
+    p.write_text(
+        """
+John Doe
+john@example.com
+LinkedIn: https://www.linkedin.com/in/johndoe
+GitHub: https://github.com/johndoe
+Experience: Developer
+        """.strip(),
+        encoding="utf-8",
+    )
+    res = evaluate_file(p)
+    assert res["checks"]["has_profile_links"] is True

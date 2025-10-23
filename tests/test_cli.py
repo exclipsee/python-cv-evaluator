@@ -24,3 +24,12 @@ def test_cli_runs_json(tmp_path: Path):
     data = json.loads(result.output)
     assert isinstance(data, dict)
     assert "score" in data
+
+
+def test_cli_show_text(tmp_path: Path):
+    p = tmp_path / "cv.txt"
+    p.write_text("John Doe\njohn@example.com\nSkills: Python", encoding="utf-8")
+    runner = CliRunner()
+    result = runner.invoke(main, [str(p), "--show-text", "--fail-under", "0"])
+    assert result.exit_code == 0
+    assert "john@example.com" in result.output

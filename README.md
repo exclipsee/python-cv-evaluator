@@ -33,6 +33,13 @@ ats-eval "C:\\path\\to\\YourCV.pdf" --job "C:\\path\\to\\job.txt"
 ats-eval "C:\\path\\to\\YourCV.pdf" --keywords "python,sql,azure" --fail-under 75
 ```
 
+### Debug options
+
+```powershell
+# Show exactly what the extractor reads (useful for ATS parsing checks)
+ats-eval "C:\\path\\to\\YourCV.pdf" --show-text | more
+```
+
 ## Why ATS‑friendly?
 
 Applicant Tracking Systems parse your CV to extract text and structure. Common pitfalls reduce what the system can “see.” This tool focuses on:

@@ -35,6 +35,13 @@ def _read_docx(path: Path) -> ExtractedText:
     table_count = len(doc.tables)
     if table_count:
         notes.append(f"contains {table_count} table(s)")
+    # Image detection (heuristic): count inline shapes
+    try:
+        img_count = len(getattr(doc, "inline_shapes", []))
+        if img_count:
+            notes.append(f"contains {img_count} image(s)")
+    except Exception:
+        pass
     for p in doc.paragraphs:
         parts.append(p.text)
     # Very rough page estimate based on paragraphs
@@ -49,6 +56,7 @@ def _read_pdf(path: Path) -> ExtractedText:
 
     notes: list[str] = []
     pages: Optional[int] = None
+    reader = None
     try:
         reader = PdfReader(str(path))
         pages = len(reader.pages)
@@ -59,6 +67,27 @@ def _read_pdf(path: Path) -> ExtractedText:
     except Exception:
         txt = ""
         notes.append("failed to extract text with pdfminer")
+    # Heuristic image presence: scan XObjects for /Image
+    if reader is not None:
+        try:
+            img_total = 0
+            for page in reader.pages:
+                resources = page.get("/Resources") or {}
+                xobj = resources.get("/XObject") if hasattr(resources, "get") else None
+                if xobj:
+                    # xobj may be an IndirectObject mapping
+                    xobj = xobj.get_object()
+                    for obj in xobj.values():
+                        try:
+                            o = obj.get_object()
+                            if o.get("/Subtype") == "/Image":
+                                img_total += 1
+                        except Exception:
+                            continue
+            if img_total:
+                notes.append(f"contains {img_total} image(s)")
+        except Exception:
+            pass
     return ExtractedText(text=txt, pages=pages, file_type="pdf", notes=notes)
 
 
